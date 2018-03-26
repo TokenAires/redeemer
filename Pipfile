@@ -1,6 +1,8 @@
 [[source]]
+
 url = "https://pypi.python.org/simple"
 verify_ssl = true
+
 
 [dev-packages]
 
@@ -8,11 +10,14 @@ ipython = "*"
 "pep8" = "*"
 "autopep8" = "*"
 
+
 [packages]
 
-steem = "*"
+steem = ">=1.0.0, <2.0.0"
 configargparse = "*"
 sendgrid = "*"
 
+
 [requires]
+
 python_version = "3.6"
