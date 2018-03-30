@@ -1,3 +1,4 @@
+import os
 import logging
 from decimal import Decimal
 
@@ -21,7 +22,7 @@ class Delegator(object):
             deplorables=None):
         if steem is None:
             dry_run = True
-            self.steem = Steem(nodes=['https://api.steemit.com'])
+            self.steem = Steem(nodes=os.environ.get('STEEMD_RPC'))
         else:
             self.steem = steem
 
