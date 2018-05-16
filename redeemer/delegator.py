@@ -30,7 +30,7 @@ class Delegator(object):
     def __init__(
             self,
             steem=None,
-            limit=1000,
+            limit=100,
             logger=logging.NullHandler,
             deplorables=None):
         if steem is None:
@@ -163,7 +163,7 @@ class Delegator(object):
         if not dry_run:
             result = tx.broadcast()
             self.logger.info('transaction broadcast. result: %s', result)
-            pause = 3 * len(deltas) / 1000 # rate limit: max 1000 ops per 3s
+            pause = 3 * len(deltas) / 100 # rate limit: max 100 ops per 3s
             time.sleep(pause) # avoid steem#1973 & drastic bandwidth adjustments
 
         return (deltas, last_idx)
