@@ -1,4 +1,5 @@
 import logging
+import time
 from decimal import Decimal
 from datetime import datetime
 
@@ -156,11 +157,13 @@ class Delegator(object):
             expiration=expiration)
         tx.appendOps(delegation_ops)
         [tx.appendWif(wif) for wif in wifs]
-        if len(wifs):
+        if wifs:
             tx.sign()
 
         if not dry_run:
             result = tx.broadcast()
             self.logger.info('transaction broadcast. result: %s', result)
+            pause = 3 * len(deltas) / 1000 # rate limit: max 1000 ops per 3s
+            time.sleep(pause) # avoid steem#1973 & drastic bandwidth adjustments
 
         return (deltas, last_idx)
