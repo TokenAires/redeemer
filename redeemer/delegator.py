@@ -1,5 +1,6 @@
 import logging
 from decimal import Decimal
+from datetime import datetime
 
 from steem import Steem
 from steembase import operations
@@ -8,6 +9,18 @@ from steem.transactionbuilder import TransactionBuilder
 def amount(steem_amount):
     # in: `3.000 STEEM`, out: Decimal('3.000')
     return Decimal(steem_amount.split(' ')[0])
+
+def inactive_days(account):
+    last_action_date = max(
+        account['last_bandwidth_update'],
+        account['created'],
+        account['last_post'],
+        account['last_vote_time'])
+    return days_since(last_action_date)
+
+def days_since(date):
+    interval = datetime.today() - datetime.strptime(date, '%Y-%m-%dT%H:%M:%S')
+    return interval.days
 
 class Delegator(object):
 
@@ -60,24 +73,33 @@ class Delegator(object):
 
         delegations = {r['delegatee']: r['vesting_shares'] for r in results}
         accounts = self.steem.get_accounts(list(delegations.keys()))
-        for account in accounts:
-            account['vesting_shares_from_delegator'] = delegations[account['name']]
+        for acct in accounts:
+            acct['vesting_shares_from_delegator'] = delegations[acct['name']]
 
         return (accounts, results[-1]['delegatee'])
 
     def vests_to_delegate(self, acct):
         name = acct['name']
-        account_vests = Decimal(acct['vesting_shares'].split(' ')[0])
-        old_delegated_vests = Decimal(
-            acct['vesting_shares_from_delegator'].split(' ')[0])
+        account_vests = amount(acct['vesting_shares'])
+        old_delegated_vests = amount(acct['vesting_shares_from_delegator'])
 
         if name in self.deplorables:
             new_delegated_vests = 0
+        elif account_vests >= self.TARGET_VESTS:
+            new_delegated_vests = 0
+        elif inactive_days(acct) > 90:
+            _inactive_target = self.TARGET_VESTS / 3 - account_vests
+            new_delegated_vests = max(self.MIN_VESTS, _inactive_target)
         else:
-            new_delegated_vests = max(0, self.TARGET_VESTS - account_vests)
+            new_delegated_vests = self.TARGET_VESTS - account_vests
+
+        skip_increase = (amount(acct['vesting_withdraw_rate']) > 0.000001
+                         or int(acct['withdrawn']) > 0
+                         or int(acct['to_withdraw']) > 0
+                         or account_vests < 200)
 
         # do not process attempted increases in delegation
-        if new_delegated_vests > old_delegated_vests:
+        if new_delegated_vests > old_delegated_vests and skip_increase:
             return None
 
         # if target vests are below minimum vests, round up.
@@ -102,33 +124,32 @@ class Delegator(object):
                 'new_vests': "%.6f VESTS" % new_delegated_vests,
                 'old_vests': acct['vesting_shares_from_delegator']}
 
-    def get_delegation_deltas(self, delegator_account_name, accounts):
+    def get_delegation_deltas(self, accounts):
         deltas = [self.vests_to_delegate(account) for account in accounts]
         return [item for item in deltas if item]
 
     def delegate(
             self,
-            delegator_account_name,
+            delegator,
             last_idx,
             expiration=60,
             dry_run=True,
             wifs=[]):
-        accounts, last_idx = self.get_delegated_accounts(
-            delegator_account_name, last_idx=last_idx)
+        accounts, last_idx = self.get_delegated_accounts(delegator, last_idx)
         if not accounts:
             return ([], last_idx)
 
-        deltas = self.get_delegation_deltas(delegator_account_name, accounts)
+        deltas = self.get_delegation_deltas(accounts)
+        if not deltas:
+            return ([], last_idx)
+
         delegation_ops = []
         for delta in deltas:
             delegation_ops.append(operations.DelegateVestingShares(
-                delegator=delegator_account_name,
+                delegator=delegator,
                 vesting_shares=delta['new_vests'],
                 delegatee=delta['name']
             ))
-        if len(delegation_ops) == 0:
-            self.logger.info('no operations in this group to broadcast.')
-            return ([], last_idx)
 
         tx = TransactionBuilder(
             steemd_instance=self.steem,
