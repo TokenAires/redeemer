@@ -141,10 +141,10 @@
         },
         "steem": {
             "hashes": [
-                "sha256:d79d0934f0f9f5a57247fc3c153c39d148c777026c65dcd4faad7b3a4ae601f7",
-                "sha256:c9ba0db870c0ae8d89f324584ca931ca9a35a5d69112101d6cfad35c199b42c3"
+                "sha256:925442170798783c909786437e2172dd2bad3218f9936f282a2b1d3b12eb4526",
+                "sha256:e6285302a32e2aace8913f79f4d5efbd0488a1b6a53c6c06b7801e622587af67"
             ],
-            "version": "==1.0.0"
+            "version": "==1.0.1"
         },
         "toolz": {
             "hashes": [
